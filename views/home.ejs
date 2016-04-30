@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <!-- jQuery -->
+    <script type="text/javascript" src="onlinefolio/layout/scripts/jquery.min.js"></script>
+    <script type="text/javascript" src="onlinefolio/layout/scripts/jquery.slidepanel.setup.js"></script>
+    <script type="text/javascript" src="javascripts/jquery.imgareaselect-0.9.10/scripts/jquery.min.js"></script>
+    <script type="text/javascript" src="javascripts/jquery.imgareaselect-0.9.10/scripts/jquery.imgareaselect.pack.js"></script>
+    <link rel="stylesheet" type="text/css" href="javascripts/jquery.imgareaselect-0.9.10/css/imgareaselect-default.css" />
+    <link rel="stylesheet" href="jquery/jquery-ui.css">
+    <script src="jquery/jquery-ui.js"></script>
+    <!--bootstrap-->
+    <link href="bootstrap-3.3.5/docs/examples/starter-template/starter-template.css" rel="stylesheet">
+    <script type="text/javascript" src="bootstrap-3.3.5/docs/assets/js/ie-emulation-modes-warning.js"></script>
+    <link href="bootstrap-3.3.5/dist/css/bootstrap.min.css" rel="stylesheet">  
+    <!-- Open Layers 3 -->
+    <link rel="stylesheet" href="v3.10.1/css/ol.css" type="text/css">
+    <script src="v3.10.1/build/ol.js" type="text/javascript"></script>
+    <!-- LayerSwitcher -->
+    <link rel="stylesheet" href="ol3-layerswitcher-master/src/ol3-layerswitcher.css" />
+    <link rel="stylesheet" href="ol3-layerswitcher-master/examples/layerswitcher.css" />
+    <script src="ol3-layerswitcher-master/src/ol3-layerswitcher.js"></script>
+    <script src="ol3-layerswitcher-master/examples/layerswitcher.js"></script>
+    <script src="ol3-layerswitcher-master/examples/addlayer.js"></script>
+    <title>Geotagged images</title>
+    <style>
+      img {
+        width: 100%;
+        margin: 0;
+      }    
+      #map {
+        margin: 0;
+        height: 100%;
+        margin-top: 50px;
+      }
+      #next {
+        position: absolute;
+        right: 10px;
+      }
+      div.upload {
+        width: 157px;
+        height: 57px;
+        background: url(https://lh6.googleusercontent.com/-dqTIJRTqEAQ/UJaofTQm3hI/AAAAAAAABHo/w7ruR1SOIsA/s157/upload.png);
+        overflow: hidden;
+        white-space: nowrap;
+      }
+      div.upload input {
+        display: block !important;
+        width: 157px !important;
+        height: 57px !important;
+        opacity: 0 !important;
+        overflow: hidden !important;
+        white-space: nowrap;
+      }
+      div.upload:hover {
+        border-style: solid;
+        border-color: rgba(238,233,233,0.1);
+      }
+      #myImg {
+        position:absolute;
+        width:500px;
+        right:0;
+        bottom:80px;
+        cursor: pointer;
+      }
+      .alert {
+        position: absolute;
+        left:0;
+        top:0;
+        width:100%;
+        z-index:10000;
+      }
+    </style>
+  </head>
+  <!-- onload show images on the map -->
+  <body onload="showMarkers(<%= imageData %>), alert('<%= error %>')">
+
+    <!-- Navigation bar -->
+    <nav class="navbar navbar-inverse navbar-fixed-top">
+      <div class="container">
+        <div class="navbar-header">
+          <a class="navbar-brand" href="/">Geotagged images</a>
+        </div>
+        <div id="navbar" class="collapse navbar-collapse">
+          <ul class="nav navbar-nav">
+            <li>
+            <!-- Upload button -->
+              <div class="upload">
+                <form id="uploadForm" action='/upload' method='post' enctype="multipart/form-data" style="white-space: nowrap;">
+                  <input id="file" type="file" name="image" data-buttonText="Upload photo">
+                </form>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+    <div class="alert alert-dismissible alert-warning">
+      <button type="button" class="close" data-dismiss="alert" onclick="hideAlert()">&times;</button>
+      <h4>Warning!</h4>
+      <p id="alertWarning"></p>
+    </div>
+
+    <div class="alert alert-dismissible alert-danger">
+      <button type="button" class="close" data-dismiss="alert" onclick="hideAlert()">&times;</button>
+      <h4>Error</h4>
+      <p id="alertDanger"></p>
+    </div>
+    <!-- Map placeholder -->
+    <div class="row">
+        <div class="col-lg-12">
+          <div id="map" ></div>
+        </div>
+    </div>
+    <div id="myImgDiv"><img id="myImg" class="img-thumbnail" src="" alt="Urban landscape"/></div>
+    <!-- Upload image functionality -->
+    <script type="text/javascript">
+    jQuery(".alert").hide()
+      $(function () {
+        document.getElementById("file").onchange = function() {
+          document.getElementById("uploadForm").submit()
+        }
+      })
+    </script>
+    <script type="text/javascript">
+      //Hide current alert
+      function hideAlert() {
+        jQuery(".alert").hide()
+      }
+
+      //display alert with an warning/error message
+      function alert(err) {
+        if (err=="No images found.") {
+          jQuery("#alertWarning").html(err)
+          jQuery(".alert-warning").show()
+        } else if (err!="0.") {
+          jQuery("#alertDanger").html(err)
+          jQuery(".alert-danger").show()
+        }      
+      }
+    
+      $('#myImgDiv').hide()
+      /* Openlayers 3 */
+      // create satellite layer
+      var sourceBingMaps = new ol.source.BingMaps({
+          key: 'Ag4eQzHgpn-LvpD_4Mx6Vsx7TslsxykxKc_cGyf2HDZtQqmg5oZEeX4mmwVOGtyz',
+          imagerySet: 'Aerial',
+      });
+      // create interactions and controls
+      var mouseZoom = new ol.interaction.MouseWheelZoom();
+      var interaction = new ol.interaction.DragRotate();
+      var pan = new ol.interaction.DragPan();
+      var pinch = new ol.interaction.PinchRotate()
+      var rotateControl = new ol.control.Rotate();
+      var zoomControl = new ol.control.Zoom();
+      
+      var layerSwitcher = new ol.control.LayerSwitcher();
+      var vectorLayer
+      var vectorLayer4
+      var vectorLayer5
+      var vectorSource2
+      var vectorLayer2
+      var vectorSource3
+      var vectorLayer3
+      // create map
+      var map = new ol.Map({
+        target: 'map',
+        controls: [rotateControl, zoomControl, layerSwitcher],
+        layers: [
+          new ol.layer.Tile({
+            title: 'OSM',
+            type: 'base',
+            visible: true,
+            source: new ol.source.OSM()
+          }),
+          new ol.layer.Tile({
+            title: 'Satellite',
+            type: 'base',
+            visible: false,
+            source: sourceBingMaps
+          })
+        ],
+        view: new ol.View({
+          center: ol.proj.transform([ 7.617449, 51.963416  ], 'EPSG:4326', 'EPSG:3857'),
+          zoom: 13
+        }),
+        interactions: [ interaction, mouseZoom, pan, pinch]
+      })
+
+      /* Display images on map
+      * @param properties: coordinates of the images
+      */
+      function showMarkers(imageData) {
+        if (imageData!=undefined) {
+          var iconFeatures=[]
+          for (x in imageData) {
+            //get image coordinates
+            var lat = imageData[x].coords[1]
+            var lon = imageData[x].coords[0]
+            //create icon style
+            var iconStyle = new ol.style.Style({
+              image: new ol.style.Icon( ({
+                scale: 0.2,
+                size: [200,200],
+                src: "http://a-rommel.de/" + imageData[x].name + ".jpg"
+              }))
+            })
+            var iconFeature = new ol.Feature({
+              geometry: new ol.geom.Point([ lon, lat ]),
+              name: imageData[x].name,
+              buildings: imageData[x].buildings,
+              format: imageData[x].format             
+            })
+            iconFeature.setStyle(iconStyle)
+            iconFeatures.push(iconFeature)
+          }   
+          var vectorSource = new ol.source.Vector({
+            features: iconFeatures 
+          }) 
+          var vectorLayer = new ol.layer.Vector({
+            source: vectorSource
+          })
+          //add images to map
+          map.addLayer(vectorLayer)
+          var normalStyle = new ol.style.Style({
+            image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+              anchor: [ 0.5, 200],
+              scale: 0.2,
+              anchorXUnits: 'fraction',
+              anchorYUnits: 'pixels',
+              src: "http://a-rommel.de/Flag.png"
+            }))
+          })
+          //create selecting imteraction
+          var mySelectInteraction = new ol.interaction.Select({ layers: [vectorLayer]})
+          //define what happens if an image is selected or deselected
+          mySelectInteraction.getFeatures().on('add', function(e) {
+            var feature = e.element 
+            //show a big image in a draggable div
+            $('#myImg').attr('src',"http://a-rommel.de/" + feature.getProperties().name + ".jpg")
+            $('#myImgDiv').show()
+            $(function() {
+              $( "#myImgDiv" ).draggable()
+            })
+            if (vectorLayer4!=undefined) {
+              map.removeLayer(vectorLayer4)
+            }           
+            feature.setStyle(normalStyle)
+            //show the buildings displayed in the selected image
+            var coords = feature.getGeometry().getCoordinates()
+            var buildings = feature.getProperties().buildings
+            var features = []
+            for (x in buildings) {
+              if (typeof(buildings[x].geometry[0][0])!="number" && typeof(buildings[x].geometry[0][0])!="undefined") {
+                var feature = new ol.Feature({
+                  name: buildings[x].id,
+                  geometry: new ol.geom.Polygon(buildings[x].geometry)
+                })
+                features.push(feature) 
+              }                
+            }
+            var vectorSource4 = new ol.source.Vector({
+              features: features
+            })
+            var myStyle = new ol.style.Style({
+              stroke: new ol.style.Stroke({ color: 'orange', width: 3 }),
+              fill: new ol.style.Fill({ color: 'rgba(255, 153, 0, 0.5)' })
+            })
+            vectorLayer4 = new ol.layer.Vector({
+              source: vectorSource4,
+              style: myStyle
+            })              
+            map.addLayer(vectorLayer4)
+              map.getView().setCenter(coords)
+              map.getView().setZoom(17)
+          })
+          mySelectInteraction.getFeatures().on('remove', function(e) {
+            var feature = e.element 
+            var iconStyle = new ol.style.Style({
+              image: new ol.style.Icon( ({
+                scale: 0.2,
+                size: [200,200],
+                src: "http://a-rommel.de/" + feature.getProperties().name + ".jpg"
+              }))
+            })            
+            feature.setStyle(iconStyle)
+          })
+          map.addInteraction(mySelectInteraction) 
+          var extent = vectorLayer.getSource().getExtent()
+          map.getView().fit(extent, map.getSize())
+          var extentControl = new ol.control.ZoomToExtent({ extent })
+          map.addControl(extentControl)
+        }
+      }
+    </script>
+  </body>
+</html>
